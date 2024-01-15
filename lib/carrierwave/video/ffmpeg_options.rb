@@ -78,7 +78,6 @@ module CarrierWave
             when 'mp4'
               h[:video_codec] = 'libx264'
               h[:audio_codec] = 'aac'
-              h[:resolution] = '1080x1920'
               h[:custom] = %w(-r 30 -strict -2 -map_metadata -1)
             when 'ogv'
               h[:video_codec] = 'libtheora'

@@ -5,13 +5,13 @@ module CarrierWave
 
       def initialize(format, options)
         @format = format.to_s
-        @resolution = options[:resolution] || "640x360"
+        @resolution = options[:resolution]
         @custom = options[:custom]
         @callbacks = options[:callbacks] || {}
         @logger = options[:logger]
         @unparsed = options
         @progress = options[:progress]
-        @preserve_aspect_ratio = options[:preserve_aspect_ratio] || :width
+        @preserve_aspect_ratio = options[:preserve_aspect_ratio]
 
         @format_options = defaults.merge(options)
       end
@@ -29,10 +29,6 @@ module CarrierWave
           args = model.method(@progress).arity == 3 ? [@format, @format_options] : []
           lambda { |val| model.send(@progress, *(args + [val])) }
         end
-      end
-
-      def encoder_options
-        { preserve_aspect_ratio: @preserve_aspect_ratio }
       end
 
       # input
@@ -82,6 +78,7 @@ module CarrierWave
             when 'mp4'
               h[:video_codec] = 'libx264'
               h[:audio_codec] = 'aac'
+              h[:resolution] = '1080x1920'
               h[:custom] = %w(-r 30 -strict -2 -map_metadata -1)
             when 'ogv'
               h[:video_codec] = 'libtheora'

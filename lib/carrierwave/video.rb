@@ -44,11 +44,25 @@ module CarrierWave
       cache_stored_file! if !cached?
 
       @options = CarrierWave::Video::FfmpegOptions.new(format, opts)
-      tmp_path = File.join( File.dirname(current_path), "tmpfile.#{format}" )
+      tmp_path = File.join(File.dirname(current_path), "tmpfile.#{format}" )
       file = ::FFMPEG::Movie.new(current_path)
 
-      if opts[:resolution] == :same
-        @options.format_options[:resolution] = file.resolution
+      if (opts[:resolution] == :same || 
+          opts[:resolution] == :onethird || 
+          opts[:resolution] == :half)
+
+        resolution = file.resolution.split('x')
+        height = resolution[0].to_i
+        width = resolution[1].to_i
+        if opts[:resolution] == :onethird
+          height /= 3
+          width /= 3
+        elsif opts[:resolution] == :half
+          height /= 2
+          width /= 2
+        end
+        @options.format_options[:resolution] = "#{width}x#{height}"
+
       end
 
       if opts[:video_bitrate] == :same
@@ -61,11 +75,21 @@ module CarrierWave
 
       with_trancoding_callbacks do
         if progress
-          file.transcode(tmp_path, @options.format_params, @options.encoder_options) {
-              |value| progress.call(value)
-          }
+          if @encoder_options.present?
+            file.transcode(tmp_path, @options.format_params, @encoder_options) {
+                |value| progress.call(value)
+            }
+          else
+            file.transcode(tmp_path, @options.format_params) {
+                |value| progress.call(value)
+            }
+          end
         else
-          file.transcode(tmp_path, @options.format_params, @options.encoder_options)
+          if @encoder_options.present?
+            file.transcode(tmp_path, @options.format_params, @encoder_options)
+          else
+            file.transcode(tmp_path, @options.format_params)
+          end
         end
         File.rename tmp_path, current_path
       end

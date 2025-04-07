@@ -95,7 +95,7 @@ module CarrierWave
 
       progress = @options.progress(model)
 
-      with_trancoding_callbacks do
+      with_transcoding_callbacks do
         if progress
           if @encoder_options.present?
             file.transcode(tmp_path, @options.format_params, @encoder_options) {

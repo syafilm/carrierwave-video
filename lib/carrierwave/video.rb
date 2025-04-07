@@ -34,44 +34,62 @@ module CarrierWave
       tmp_path  = File.join( File.dirname(current_path), "tmpfile.ogv" )
       @options = CarrierWave::Video::FfmpegOptions.new('ogv', opts)
 
-      with_trancoding_callbacks do
+      with_transcoding_callbacks do
         transcoder = CarrierWave::Video::FfmpegTheora.new(current_path, tmp_path)
         transcoder.run(@options.logger(model))
         File.rename tmp_path, current_path
       end
     end
 
-    def encode_video(format, opts={})
-      # move upload to local cache
-      cache_stored_file! if !cached?
+    def encode_video(format, opts = {})
+      # Move upload to local cache
+      cache_stored_file! unless cached?
 
       @options = CarrierWave::Video::FfmpegOptions.new(format, opts)
-      tmp_path = File.join(File.dirname(current_path), "tmpfile.#{format}" )
+      tmp_path = File.join(File.dirname(current_path), "tmpfile.#{format}")
       file = FFMPEG::Movie.new(current_path)
       video = MiniExiftool.new(current_path)
-      orientation = video.rotation
+      orientation = video.rotation.to_i
+      # Resolution handling
+      if [:same, :onethird, :half].include?(opts[:resolution])
+        original_width = file.width
+        original_height = file.height
 
-      if (opts[:resolution] == :same || 
-          opts[:resolution] == :onethird || 
-          opts[:resolution] == :half)
+        # Adjust for rotation
+        if orientation == 90 || orientation == 270
+          original_width, original_height = original_height, original_width
+        end
 
-        resolution = file.resolution.split('x')
-        height = orientation === 90 ? opts[:resolution] == :onethird ? file.width / 3 : opts[:resolution] == :half ? file.width / 2 : file.width : opts[:resolution] == :onethird ? file.height / 3 : opts[:resolution] == :half ? file.height / 2 : file.height
-        width = orientation === 90 ? opts[:resolution] == :onethird ? file.height / 3 : opts[:resolution] == :half ? file.height / 2 : file.height : opts[:resolution] == :onethird ? file.width / 3 : opts[:resolution] == :half ? file.width / 2 : file.width
-        
+        width, height = case opts[:resolution]
+                        when :onethird
+                          [(original_width / 3.0).floor, (original_height / 3.0).floor]
+                        when :half
+                          [(original_width / 2.0).floor, (original_height / 2.0).floor]
+                        else
+                          [original_width, original_height]
+                        end
+
+        # Ensure even dimensions (libx264 requires this)
+        width  = [2, (width / 2) * 2].max
+        height = [2, (height / 2) * 2].max
+
         @options.format_options[:resolution] = "#{width}x#{height}"
-
       end
 
+      # Video bitrate
       if opts[:video_bitrate] == :same
         @options.format_options[:video_bitrate] = file.video_bitrate
       end
 
       yield(file, @options.format_options) if block_given?
 
+      # Optional strict flag if needed
+      @options.format_options[:custom] ||= []
+      @options.format_options[:custom] += ['-strict', '-2']
+
       progress = @options.progress(model)
 
-      with_trancoding_callbacks do
+      with_transcoding_callbacks do
         if progress
           if @encoder_options.present?
             file.transcode(tmp_path, @options.format_params, @encoder_options) {

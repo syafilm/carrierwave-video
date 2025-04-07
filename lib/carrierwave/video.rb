@@ -54,12 +54,12 @@ module CarrierWave
       if [:same, :onethird, :half].include?(opts[:resolution])
         original_width = file.width
         original_height = file.height
-
-        # Adjust for rotation
-        if orientation == 90 || orientation == 270
+      
+        # Adjust for rotation (to_i handles nil/strings)
+        if orientation.to_i == 90 || orientation.to_i == 270
           original_width, original_height = original_height, original_width
         end
-
+      
         width, height = case opts[:resolution]
                         when :onethird
                           [(original_width / 3.0).floor, (original_height / 3.0).floor]
@@ -68,11 +68,11 @@ module CarrierWave
                         else
                           [original_width, original_height]
                         end
-
-        # Ensure even dimensions (libx264 requires this)
-        width  = [2, (width / 2) * 2].max
-        height = [2, (height / 2) * 2].max
-
+      
+        # Make sure both dimensions are even numbers
+        width  = (width / 2).floor * 2
+        height = (height / 2).floor * 2
+      
         @options.format_options[:resolution] = "#{width}x#{height}"
       end
 
